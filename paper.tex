@@ -1,0 +1,89 @@
+\documentclass{article}
+
+\usepackage[letterpaper, margin=1.0in]{geometry}
+
+\begin{document}
+
+\title{Attestable Expiration with Trusted Platform Modules}
+\author{Frank Cangialosi, Philip Kim}
+
+\maketitle
+
+\section{Introduction}
+
+Why it would be desirable to have information expire...
+
+The difficult problem in implementing information that expires is the impossibility of proving a negative. Even if it were possible for the recipient to prove that he has deleted the sensitive information, he can not prove that he didn't make a copy of it beforehand.
+
+This changes with the use of TPMs. With TPMs, it is possible to seal information such that it can only be accessed by a trusted program. Moreover, one can provably attest that the trusted program was executed with a given input and produced a given output.
+
+Background on TPMs...
+
+sealed storage
+Secure channel
+Protection against replay attacks
+
+
+\section{Related Work}
+
+Vanish\\
+
+Flicker\\
+
+Ethereum\\
+
+\section{Design}
+
+Suppose that Alice wishes to send a message to Bob that expires at time $t$. In our model, Bob is not malicious and will not attempt to store an illicit copy of the message. However, we wish to protect against the eventuality that Bob becomes malicious in the future, or that Bob's credentials are compromised by a future adversary (Mallory).
+
+We wish to achieve the following properties:
+
+\begin{itemize}
+
+\item Before time $t$, Bob can read the message.
+\item After time $t$, Bob can not read the message.
+\item Alice does not need to be online after sending the message for Bob to be able to read it.
+
+\end{itemize}
+
+Strawman 1:
+  Alice sends the message to Bob, encrypted with a key K. She stores K on a trusted third party Charlie. To read the data, Bob asks Charlie for the key, and if the current time is < T, Charlie gives it to him. Alice trusts Bob not to save a copy of the key.
+
+  The strawman fails because there is nothing stopping Charlie from retaining K even after T. Therefore, Mallory can collude with Charlie to obtain K and read the message.
+
+Proposal:
+  In this model, Charlie is a provider of secure computing; he wants to a) collect fees, and b) preserve his reputation. Assume that Charlie is running Flicker.
+
+\begin{enumerate}
+
+\item Alice sends a Flicker PAL (Piece of Application Logic) to Charlie. Alice asks Charlie to run it with the input parameter "-bootstrap".
+
+\item When Charlie runs the PAL, the PAL establishes a secure channel as per section 4.4.2 of the Flicker paper. That is, it generates a public/private key pair, outputs the public key, and puts the private key in sealed storage.
+
+\item Charlie sends Alice a Flicker attestation of the execution and output. After verifying the attestation, Alice knows that a) her PAL was executed, and b) it produced the attested public key.
+
+\item Alice encrypts K with the secure channel public key sends it to Charlie. Charlie stores the ciphertext of the key. Alice then goes offline, but not before completing step 7 below.
+
+\item In order to request K, Bob sends his public key to Charlie. Charlie runs the PAL with three inputs: the "-divulge" flag, the ciphertext of K, and Bob's public key. The PAL decrypts K using the secure channel private key, re-encrypts it using Bob's public key, and produces the re-encrypted key as output. Charlie sends the output to Bob.
+
+\item If Charlie runs the PAL with the parameter "-destroy", the PAL will sign the statement "Key destroyed" with the secure channel private key. It will then destroy the secure channel private key. The output is the signed statement.
+
+\item Before going offline, Alice wrote an Ethereum contract that said, "If Charlie provides a statement that reads 'Key destroyed' when decrypted with this secure channel public key, I will pay him X ether."
+
+\end{enumerate}
+
+\section{Analysis}
+
+Properties achieved:
+
+\begin{enumerate}
+
+\item Charlie never learns K.
+
+\item If Charlie produces proof that he destroyed the key, then a) he gets rewarded, and b) Alice knows that K can never be divulged again. (Note: in order to know that the secure channel private key was truly destroyed, we have to protect against replay attacks using a secure counter as in Flicker section 4.3.2.)
+
+\item If Charlie doesn't claim his key-destruction payment before time T, Alice knows that something is wrong. We can strengthen this to "Charlie loses reputation" by having him sign a promise to destroy the key at the start.
+
+\end{enumerate}
+
+\end{document}
