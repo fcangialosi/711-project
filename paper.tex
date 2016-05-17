@@ -38,29 +38,35 @@ Suppose that Alice wishes to send a message to Bob that expires at time $t$. Tha
 
 As a straw man, Alice could send the message to Bob encrypted with key $K$, and then store $K$ on a trusted third party (Charlie). To read the data, Bob asks Charlie for $K$, and if the current time is less than $t$, Charlie gives it to him. Just as we assume that Bob will not make a copy of the message, we assume that he discards $K$ after each use.
 
-The problem with the straw man is that it requires extending the same trust to Charlie that we do to Bob. Charlie can retain $K$ as long as he likes and distribute it as widely as he wishes---e.g., to Mallory---and moreover he can repudiate doing so without any way for Alice to prove otherwise.
+The problem with the straw man is that it requires extending the same trust to Charlie that we do to Bob. Charlie can retain $K$ as long as he likes and distribute it as widely as he wishes---e.g., to Mallory---and moreover he can repudiate his misbehavior without any way for Alice to prove otherwise.
 
-Through use of a TPM, we can shift the burden of proof onto Charlie; instead of Alice proving that Charlie acted in bad faith, Charlie can prove that he acted correctly. Suppose, for example, that we extend the model such that Charlie is a provider of secure computing. In exchange for a fee, he will provide attestable execution of a given program at a given time. 
+Through use of a TPM, we can shift the burden of proof onto Charlie; instead of Alice proving that Charlie acted in bad faith, Charlie can prove that he acted correctly. Suppose, for example, that we extend the model such that Charlie is a provider of secure computing. In exchange for a fee, he will provide attestable execution of a given program at a given time.
+
+Alice and Charlie can perform a protocol as follows:
 
 \begin{enumerate}
 
-\item Alice sends a Flicker PAL (Piece of Application Logic) to Charlie. Alice asks Charlie to run it with the input parameter "-bootstrap".
+\item Alice sends a Flicker PAL to Charlie. The PAL has an input parameter called `mode' which can take one of the following values: `initialize', `divulge', or `destroy'. 
 
-\item When Charlie runs the PAL, the PAL establishes a secure channel as per section 4.4.2 of the Flicker paper. That is, it generates a public/private key pair, outputs the public key, and puts the private key in sealed storage.
+\item Alice asks Charlie to run the PAL with the input `mode=initialize'. When Charlie runs the PAL, the PAL establishes a secure channel. That is, it generates a public/private key pair, outputs the public key, and stores the private key in the TPM such that only this PAL is able to read it.
 
-\item Charlie sends Alice a Flicker attestation of the execution and output. After verifying the attestation, Alice knows that a) her PAL was executed, and b) it produced the attested public key.
+\item Charlie sends Alice the PAL's output as well as a Flicker attestation of the execution. After verifying the attestation, Alice knows that a) her PAL was executed, and b) it produced the attested public key.
 
-\item Alice encrypts K with the secure channel public key sends it to Charlie. Charlie stores the ciphertext of the key. Alice then goes offline, but not before completing step 7 below.
+\item Alice encrypts $K$ with the secure channel public key and sends it to Charlie. Charlie stores the ciphertext of $K$. Alice then goes offline, but not before writing an Ethereum contract, described below as step 8.
 
-\item In order to request K, Bob sends his public key to Charlie. Charlie runs the PAL with three inputs: the "-divulge" flag, the ciphertext of K, and Bob's public key. The PAL decrypts K using the secure channel private key, re-encrypts it using Bob's public key, and produces the re-encrypted key as output. Charlie sends the output to Bob.
+\item In order to request $K$, Bob sends his public key to Charlie. Charlie runs the PAL with three inputs: `mode=divulge', the ciphertext of $K$, and Bob's public key. The PAL decrypts $K$ using the secure channel private key, re-encrypts it using Bob's public key, and produces the re-encrypted key as output. Charlie sends the output to Bob.
 
-\item If Charlie runs the PAL with the parameter "-destroy", the PAL will sign the statement "Key destroyed" with the secure channel private key. It will then destroy the secure channel private key. The output is the signed statement.
+\item When the PAL is run using `mode=divulge', it also produces as output an append-only log that contains one entry for every public key to whom Charlie has divulged $K$. The log is signed using the secure channel private key. This log must be included on subsequent executions that use `mode=divulge' so that the PAL can add another entry if necessary. The PAL can confirm that the required log has been provided and protect against replay attacks by using a monotonic counter, described in Flicker 4.3.2.
 
-\item Before going offline, Alice wrote an Ethereum contract that said, "If Charlie provides a statement that reads 'Key destroyed' when decrypted with this secure channel public key, I will pay him X ether."
+\item If Charlie runs the PAL with inputs comprising `mode=destroy' and the divulgence log, the PAL will append to the log the statement ``key destroyed''. It will then destroy the secure channel private key.
+
+\item Before going offline, Alice wrote an Ethereum contract that said, ``If Charlie publishes before time $t$ a log that can be decrypted using this public key and whose last entry is ``key destroyed", I will pay him $X$ ether."
 
 \end{enumerate}
 
 \section{Analysis}
+
+If Charlie produces proof that he destroyed the key, he earns his commission and Alice knows that $K$ can never be divulged again. If he never claims his commission, then Alice knows that something is wrong. Although she can not prove 
 
 Properties achieved:
 
@@ -71,6 +77,10 @@ Properties achieved:
 \item If Charlie produces proof that he destroyed the key, then a) he gets rewarded, and b) Alice knows that K can never be divulged again. (Note: in order to know that the secure channel private key was truly destroyed, we have to protect against replay attacks using a secure counter as in Flicker section 4.3.2.)
 
 \item If Charlie doesn't claim his key-destruction payment before time T, Alice knows that something is wrong. We can strengthen this to "Charlie loses reputation" by having him sign a promise to destroy the key at the start.
+
+Note that the protocol as written does not restrict to whom Charlie divulges the key. However, it produces a non-repudiable record of the persons to whom it has been divulged. 
+
+
 
 \end{enumerate}
 
