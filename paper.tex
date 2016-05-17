@@ -34,25 +34,13 @@ Ethereum\\
 
 \section{Design}
 
-Suppose that Alice wishes to send a message to Bob that expires at time $t$. In our model, Bob is not malicious and will not attempt to store an illicit copy of the message. However, we wish to protect against the eventuality that Bob becomes malicious in the future, or that Bob's credentials are compromised by a future adversary (Mallory).
+Suppose that Alice wishes to send a message to Bob that expires at time $t$. That is, before time $t$ Bob is able to read the message, but after time $t$ Bob is unable to read the message. In our model, Bob is not malicious and will not attempt to make an illicit copy of the message. However, we wish to protect against the eventuality that Bob becomes malicious in the future, or that Bob's system is compromised by a future adversary (Mallory). We do not wish to require that Alice be online in order for Bob to receive or read the message.
 
-We wish to achieve the following properties:
+As a straw man, Alice could send the message to Bob encrypted with key $K$, and then store $K$ on a trusted third party (Charlie). To read the data, Bob asks Charlie for $K$, and if the current time is less than $t$, Charlie gives it to him. Just as we assume that Bob will not make a copy of the message, we assume that he discards $K$ after each use.
 
-\begin{itemize}
+The problem with the straw man is that it requires extending the same trust to Charlie that we do to Bob. Charlie can retain $K$ as long as he likes and distribute it as widely as he wishes---e.g., to Mallory---and moreover he can repudiate doing so without any way for Alice to prove otherwise.
 
-\item Before time $t$, Bob can read the message.
-\item After time $t$, Bob can not read the message.
-\item Alice does not need to be online after sending the message for Bob to be able to read it.
-
-\end{itemize}
-
-Strawman 1:
-  Alice sends the message to Bob, encrypted with a key K. She stores K on a trusted third party Charlie. To read the data, Bob asks Charlie for the key, and if the current time is < T, Charlie gives it to him. Alice trusts Bob not to save a copy of the key.
-
-  The strawman fails because there is nothing stopping Charlie from retaining K even after T. Therefore, Mallory can collude with Charlie to obtain K and read the message.
-
-Proposal:
-  In this model, Charlie is a provider of secure computing; he wants to a) collect fees, and b) preserve his reputation. Assume that Charlie is running Flicker.
+Through use of a TPM, we can shift the burden of proof onto Charlie; instead of Alice proving that Charlie acted in bad faith, Charlie can prove that he acted correctly. Suppose, for example, that we extend the model such that Charlie is a provider of secure computing. In exchange for a fee, he will provide attestable execution of a given program at a given time. 
 
 \begin{enumerate}
 
