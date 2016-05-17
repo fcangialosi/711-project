@@ -66,22 +66,8 @@ Alice and Charlie can perform a protocol as follows:
 
 \section{Analysis}
 
-If Charlie produces proof that he destroyed the key, he earns his commission and Alice knows that $K$ can never be divulged again. If he never claims his commission, then Alice knows that something is wrong. Although she can not prove 
+If Charlie produces proof that he destroyed the key, he earns his commission and Alice knows that $K$ can never be divulged again. If he does not claim his commission before time $t$, then Alice knows that something is wrong. We can tie the protocol into a reputation system by requiring as step 0 that Charlie make a public, signed commitment to fulfilling the contract.
 
-Properties achieved:
-
-\begin{enumerate}
-
-\item Charlie never learns K.
-
-\item If Charlie produces proof that he destroyed the key, then a) he gets rewarded, and b) Alice knows that K can never be divulged again. (Note: in order to know that the secure channel private key was truly destroyed, we have to protect against replay attacks using a secure counter as in Flicker section 4.3.2.)
-
-\item If Charlie doesn't claim his key-destruction payment before time T, Alice knows that something is wrong. We can strengthen this to "Charlie loses reputation" by having him sign a promise to destroy the key at the start.
-
-Note that the protocol as written does not restrict to whom Charlie divulges the key. However, it produces a non-repudiable record of the persons to whom it has been divulged. 
-
-
-
-\end{enumerate}
+The protocol as written does not restrict to whom Charlie divulges $K$; it simply produces a non-repudiable record of the divulgences. Suppose that Alice wishes that only Bob (or some arbitrary set of identities) is able to receive $K$. She could write the Ethereum contract in such a way that only a log that contains two entries---one corresponding to Bob and another indicating key destruction---can be used to claim the commission. If Alice wishes to make it impossible to divulge $K$ to someone other than Bob, she can embed Bob's key into the PAL. The TPM will guarantee that any modification to the PAL will produce an invalid attestation.
 
 \end{document}
