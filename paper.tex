@@ -11,17 +11,14 @@
 
 \section{Introduction}
 
-Today, we have more choices than ever when it comes to deciding who can hold on to our sensitive data, but it can be difficult to know who to trust. Even though we may trust a party at a given time, it can be difficult to know who we can trust in the future and impossible to know who might be compromised or subpeonaed. In recent years, there have been an increasing number of cases where courts mandated that a given thid party hand over its encryption keys~\cite{hushmail}, and there has been increasing pressure from law enforcement for services to incorporate a government ``back-door''~\cite{backdoor}.
-
+Today, we have more choices than ever when it comes to deciding who can hold on to our sensitive data, but it can be difficult to know whom to trust. Even though we may trust a party at a given time, it can be difficult to know who we can trust in the future and impossible to know who might be compromised or subpeonaed. In recent years, there have been an increasing number of cases where courts mandated that a given third party hand over its encryption keys~\cite{hushmail}, and there has been increasing pressure from law enforcement for services to incorporate a government ``back-door''~\cite{backdoor}.
 
 These situations could be mitigated by the existence of a system in which sensitive data expired after a given time. In this paper, we attempt to provide one possible realization of such a system.
 %In this paper, we attempt to provide a solution to these problems with a system that automatically expires data after a given time period without requiring the explicit action of the end-user.
 
-
 The difficulty in implementing expiring information lies in the difficulty of proving a negative. Namely, whoever is holding on to the sensitive data must prove not only that they deleted the data, but also that they didn't make a copy of it beforehand.
 
-
-In order to achieve this property, we leverage two areas of prior work on cryptographic proofs-of-work: Trusted Platform Modules (TPMs), and Ethereum smart contracts. TPMs allow one to ensure that code has been executed correctly and without modification, and smart contracts allow for the creation of an incentive system that encourages and rewards good behavior.
+In order to achieve this property, we leverage two areas of prior work: Trusted Platform Modules (TPMs), and Ethereum smart contracts. TPMs allow one to provable attest that a given piece of code has been executed without modification, along with its inputs and outputs, and smart contracts allow for the creation of an incentive system that encourages and rewards good behavior.
 
 The rest of the paper is organized as follows. In Section 2, we provide background information on TPMs and Ethereum, and discuss prior work on expiring information. In Section 3, we make explicit our attack model and the goals of our protocol. In Section 4, we present our protocol and in Section 5, we analyze both the security properties it achieves and the limitations in entails. We conclude in Section 6.
 
