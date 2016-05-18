@@ -1,6 +1,6 @@
 \documentclass{article}
 
-\usepackage[letterpaper, margin=1.0in]{geometry}
+\usepackage[letterpaper, margin=1.25in]{geometry}
 
 \begin{document}
 
@@ -11,22 +11,25 @@
 
 \section{Introduction}
 
-Why it would be desirable to have information expire...
-
-The difficult problem in implementing information that expires is the impossibility of proving a negative. Even if it were possible for the recipient to prove that he has deleted the sensitive information, he can not prove that he didn't make a copy of it beforehand.
-
-This changes with the use of TPMs. With TPMs, it is possible to seal information such that it can only be accessed by a trusted program. Moreover, one can provably attest that the trusted program was executed with a given input and produced a given output.
-
-Background on TPMs...
-
-sealed storage
-Secure channel
-Protection against replay attacks
+Today, we have more choices than ever when it comes to deciding who can hold on to our sensitive data, but it can be difficult to know who to trust. Even though we may trust a party at a given time, it can be difficult to know who we can trust in the future and impossible to know who might be compromised or subpeonaed. In recent years, there have been an increasing number of cases where courts mandated that a given thid party hand over its encryption keys~\cite{hushmail}, and there has been increasing pressure from law enforcement for services to incorporate a government ``back-door''~\cite{backdoor}.
 
 
-\section{Related Work}
+These situations could be mitigated by the existence of a system in which sensitive data expired after a given time. In this paper, we attempt to provide one possible realization of such a system.
+%In this paper, we attempt to provide a solution to these problems with a system that automatically expires data after a given time period without requiring the explicit action of the end-user.
 
-One solution to the expiring message problem was proposed in 2009 by Geambasu, Kohno, Levy, and Levy as ``Vanish: Increasing Data Privacy with Self-Destructing Data''~\cite{vanish}. The Vanish protocol runs as follows:
+
+The difficulty in implementing expiring information lies in the difficulty of proving a negative. Namely, whoever is holding on to the sensitive data must prove not only that they deleted the data, but also that they didn't make a copy of it beforehand.
+
+
+In order to achieve this property, we leverage two areas of prior work on cryptographic proofs-of-work: Trusted Platform Modules (TPMs), and Ethereum smart contracts. TPMs allow one to ensure that code has been executed correctly and without modification, and smart contracts allow for the creation of an incentive system that encourages and rewards good behavior.
+
+The rest of the paper is organized as follows. In Section 2, we provide background information on TPMs and Ethereum, and discuss prior work on expiring information. In Section 3, we make explicit our attack model and the goals of our protocol. In Section 4, we present our protocol and in Section 5, we analyze both the security properties it achieves and the limitations in entails. We conclude in Section 6.
+
+\section{Background and Related Work}
+
+\subsection{Expiring Data}
+
+One solution to the expiring message problem was the ``Vanish'' system, proposed by Geambasu et al. in 2009~\cite{vanish}. The Vanish protocol runs as follows:
 
 \begin{itemize}
 \item Alice encrypts her data using random key $K$
@@ -36,31 +39,76 @@ One solution to the expiring message problem was proposed in 2009 by Geambasu, K
 \item Bob uses the indices to retrieve $M$ shares of the key, which he uses to decrypt the ciphertext
 \end{itemize}
 
-In order to achieve the expiring property, Vanish relies on the behavior of the DHT. The prototype uses the Vuze DHT, which expunges stored data after 8 hours, and requires republishing to persist the data beyond that interval. Other DHT implementations like OpenDHT allow the user to specify an expiration interval.
-Subsequent work by Wolchok et al. (``Defeating Vanish with Low-Cost Sybil Attacks Against Large DHTs''~\cite{defeat-vanish}) demonstrated how to defeat Vanish by crawling the Vuze DHT for all stored values. In a follow-up paper (``New Directions for Self-Destructing Data Systems"), the Vanish authors proposed methods for hardening the Vuze DHT against crawling, as well as mechanisms for splitting the key between different types of stores.
+In order to achieve the expiring property, Vanish relies on the behavior of the DHT. The prototype uses the Vuze DHT, which expunges stored data after 8 hours, and requires republishing to persist the data beyond that interval. Other DHT implementations, such as OpenDHT, allow the user to specify an expiration interval~\cite{vanish}.
+
+However, subsequent work by Wolchok et al. demonstrated that Vanish can be defeated (relatively cheaply) by crawling the Vuze DHT for all stored values~\cite{defeat-vanish}.
+
 The fundamental assumption behind Vanish is that we can trust most nodes to behave correctly, and that securing the system is therefore a matter of raising the threshold number of nodes that must abuse that trust before the system fails. Our work differs in that we do not assume that the third-party key store behaves correctly. If the key store behaves correctly, it can provably attest to doing so. If it fails to produce this attestation, Alice can infer that the key store misbehaved.
 
-Flicker~\cite{flicker,iso-tpm}\\
+\subsection{Trusted Platform Modules}
 
-Ethereum~\cite{ethereum-white,ethereum-yellow}\\
+A Trusted Platform Module (TPM) is a dedicated, tamper-resistant hardware module that can provide a provable attestation of the current platform state to an external entity. The platform state is made up of a log of hashes of software events and a set of registers whose value is a function of the entire log of events. In response to a challenge nonce, the TPM provides (1) this untrusted log of events, and (2) a \textit{quote}, which is a digital signature covering the nonce and the current register values. An external entity can verify the log by using it to recompute the register values and confirming that they match those in the quote. Furthermore, the external entity can verify the legitamcy of the signature by validating the certificate chain of the TPM's public key and deciding whether or not to trust the issuing certificate authority~\cite{tpm-iso}.
 
-\section{Design}
+Flicker is an infrastructure built on top of TPMs that reduces the set of code that must be trusted and verified to only Flicker (250 lines of code) and the Piece of Application Logic (PAL) itself, as opposed to the entire operating system. This provides more meaningful attestations that users can reason about and thus provides a more practical trust model for our purposes.
+
+Flicker introduces two important features that will provide the basis of our system protocol.
+First, it provides replay-resistant sealed storage. This mechanism takes as input a piece of sensitive data and a set of register values, $R$, which represents the state that must be held by the PAL in order to retreieve the values. In order to unseal the data, a PAL (either a later invocation of the original code or an entirely different PAL) must call the unseal command while executing with exactly the software state $R$. For example, if a rootkit were to be added after sealing the original data, the PAL would no longer be able to access the sealed data until the rootkit were removed because its presence would unpredictably alter the register values.
+
+Second, Flicker introduces the notion of a TPM-based secure communication channel, which can be established as follows: (1) the PAL generates an asymmetric keypair within the protections of Flicker and puts this into sealed storage as described above, (2) the PAL transmits the public key along with an attestation to some remote party, (3) the remote party uses the attestation to verify that the PAL produced the provided public key. Once this one-way channel from the PAL to the remote party has been established, the remote party can use the PAL's public key to initiate a secure channel in the other direction~\cite{flicker}.
+
+
+\subsection{Ethereum}
+
+Ethereum is a generalized, programmable blockchain platform inspired by Bitcoin that allows anyone to easily create and run arbitrary decentralized applications. Ethereum is based upon two building blocks: ``accounts,'' which consist of a nonce, a balance, a piece of code, and storage, and ``Ether,'' which is an Ethereum-specific cryptocurrency used to pay transaction fees.
+
+There are two types of accounts, both of which can maintain an ether balance and send  transactions: externally-controlled accounts, and contracts. Only externally-controlled accounts can initiate transactions, but contracts can fire transactons in response to others they have received. A transaction could be a simple transfer of ether, or could involve running a piece of the contract's code that updates its state.
+
+Contracts are written in a high-level language and compiled down to an Ethereum-specific binary, which is then uploaded onto the blockchain. Once uploaded, the contract will exist and operate as long as the Ethereum network exists unless it is programmed to stop~\cite{ethereum-white}.
+
+\section{Problem}
+
+\subsection{Attack Model}
 
 Suppose that Alice wishes to send a message to Bob that expires at time $t$. That is, before time $t$ Bob is able to read the message, but after time $t$ Bob is unable to read the message. In our model, Bob is not malicious and will not attempt to make an illicit copy of the message. However, we wish to protect against the eventuality that Bob becomes malicious in the future, or that Bob's system is compromised by a future adversary (Mallory). We do not wish to require that Alice be online in order for Bob to receive or read the message.
 
-As a straw man, Alice could send the message to Bob encrypted with key $K$, and then store $K$ on a trusted third party (Charlie). To read the data, Bob asks Charlie for $K$, and if the current time is less than $t$, Charlie gives it to him. Just as we assume that Bob will not make a copy of the message, we assume that he discards $K$ after each use.
+\subsection{Design Goals}
+
+\section{Protocol}
+
+\subsection{Strawman}
+
+As a strawman, Alice could send the message to Bob encrypted with key $K$, and then store $K$ on a trusted third party (Charlie). To read the data, Bob asks Charlie for $K$, and if the current time is less than $t$, Charlie returns it. Just as we assume that Bob will not make a copy of the message, we assume that he discards $K$ after each use.
 
 The problem with the straw man is that it requires extending the same trust to Charlie that we do to Bob. Charlie can retain $K$ as long as he likes and distribute it as widely as he wishes---e.g., to Mallory---and moreover he can repudiate his misbehavior without any way for Alice to prove otherwise.
 
-Through use of a TPM, we can shift the burden of proof onto Charlie; instead of Alice proving that Charlie acted in bad faith, Charlie can prove that he acted correctly. Suppose, for example, that we extend the model such that Charlie is a provider of secure computing. In exchange for a fee, he will provide attestable execution of a given program at a given time.
+\subsection{PAL}
 
-Alice and Charlie can perform a protocol as follows:
+The key insight of our approach is that, through the use of a TPM, we can shift the burden of proof onto Charlie; instead of Alice proving that Charlie acted in bad faith, Charlie can prove that he acted correctly. Specifically, we mandate that Charlie is a provider of secure computing, who, in exchange for a fee, will provide attestable execution of a given program at a given time.
+
+At the center of this approach is a Flicker PAL, which can be run in one of three modes:
+
+\begin{itemize}
+\item \texttt{initialize()} -- This function generates a public/private key pair
+\item \texttt{divulge(log)} -- ...
+\item \texttt{destroy(log)} -- ...
+\end{itemize}
+
+\subsection{Contracts}
+
+\begin{itemize}
+\item Explicit, high? cost to join
+\item Force to put deposit in for each transsaction, only get it back when the Ethereum contract ends
+\end{itemize}
+
+\subsection{Protocol}
+
+With the previous building blocks in place, we now enumerate our protocol for attestable expiration of sensitive data:
 
 \begin{enumerate}
 
-\item Alice sends a Flicker PAL to Charlie. The PAL has an input parameter called `mode' which can take one of the following values: `initialize', `divulge', or `destroy'.
+\item Alice sends a Flicker PAL to Charlie. The PAL has an input parameter, ``mode,'' which can take one of three: \texttt{initialize}, \texttt{divulge}, or \texttt{destroy}.
 
-\item Alice asks Charlie to run the PAL with the input `mode=initialize'. When Charlie runs the PAL, the PAL establishes a secure channel. That is, it generates a public/private key pair, outputs the public key, and stores the private key in the TPM such that only this PAL is able to read it.
+\item Alice asks Charlie to run the PAL with the mode \texttt{initialize}. When Charlie runs the PAL, the PAL establishes a secure channel. That is, it generates a public/private key pair, outputs the public key, and stores the private key in the TPM such that only this PAL is able to read it.
 
 \item Charlie sends Alice the PAL's output as well as a Flicker attestation of the execution. After verifying the attestation, Alice knows that a) her PAL was executed, and b) it produced the attested public key.
 
@@ -68,7 +116,7 @@ Alice and Charlie can perform a protocol as follows:
 
 \item In order to request $K$, Bob sends his public key to Charlie. Charlie runs the PAL with three inputs: `mode=divulge', the ciphertext of $K$, and Bob's public key. The PAL decrypts $K$ using the secure channel private key, re-encrypts it using Bob's public key, and produces the re-encrypted key as output. Charlie sends the output to Bob.
 
-\item When the PAL is run using `mode=divulge', it also produces as output an append-only log that contains one entry for every public key to whom Charlie has divulged $K$. The log is signed using the secure channel private key. This log must be included on subsequent executions that use `mode=divulge' so that the PAL can add another entry if necessary. The PAL can confirm that the required log has been provided and protect against replay attacks by using a monotonic counter, described in Flicker 4.3.2.
+\item When the PAL is run using mode \texttt{divulge}, it also produces as output an append-only log that contains one entry for every public key to whom Charlie has divulged $K$. The log is signed using the secure channel private key. This log must be included on subsequent executions that use `mode=divulge' so that the PAL can add another entry if necessary. The PAL can confirm that the required log has been provided and protect against replay attacks by using a monotonic counter, described in Flicker 4.3.2~\ref{flicker}.
 
 \item If Charlie runs the PAL with inputs comprising `mode=destroy' and the divulgence log, the PAL will append to the log the statement ``key destroyed''. It will then destroy the secure channel private key.
 
@@ -81,6 +129,10 @@ Alice and Charlie can perform a protocol as follows:
 If Charlie produces proof that he destroyed the key, he earns his commission and Alice knows that $K$ can never be divulged again. If he does not claim his commission before time $t$, then Alice knows that something is wrong. We can tie the protocol into a reputation system by requiring as step 0 that Charlie make a public, signed commitment to fulfilling the contract.
 
 The protocol as written does not restrict to whom Charlie divulges $K$; it simply produces a non-repudiable record of the divulgences. Suppose that Alice wishes that only Bob (or some arbitrary set of identities) is able to receive $K$. She could write the Ethereum contract in such a way that only a log that contains two entries---one corresponding to Bob and another indicating key destruction---can be used to claim the commission. If Alice wishes to make it impossible to divulge $K$ to someone other than Bob, she can embed Bob's key into the PAL. The TPM will guarantee that any modification to the PAL will produce an invalid attestation.
+
+\section{Conclusion}
+
+In this paper, we presented a solution for attestable expiration of sensitive data based on TPMs and Ethereum smart contracts. TPMs allow a third-party to provide a cryptographic attestation of who they shared the data with and at what time they deleted the data, while smart contracts both provide incentives for good behavior and explicitly punish bad behavior in our system. Furthermore, the popularity of the Ethereum platform (and blockchain-based protocols in general) and the fact that TPMs are now shipping on almost all modern processors make this system both feasible and practical with current techbnologies.
 
 \bibliographystyle{unsrt}
 \bibliography{paper}
