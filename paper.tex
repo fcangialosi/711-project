@@ -26,20 +26,23 @@ Protection against replay attacks
 
 \section{Related Work}
 
-One solution to the expiring message problem was proposed in 2009 by Geambasu, Kohno, Levy, and Levy as ``Vanish: Increasing Data Privacy with Self-Destructing Data.'' The Vanish protocol runs as follows: 
+One solution to the expiring message problem was proposed in 2009 by Geambasu, Kohno, Levy, and Levy as ``Vanish: Increasing Data Privacy with Self-Destructing Data''~\cite{vanish}. The Vanish protocol runs as follows:
 
 \begin{itemize}
-\item Alice encrypts her data using random key $K$\item Alice divides $K$ into $N$ threshold secret shares (following Shamir 1979) and destroys the original copy 
-\item Alice stores all $N$ shares in a distributed hash table (DHT) at pseudo-random indices\item Alice sends to Bob the ciphertext of the data as well as the seed used to derive the share indices\item Bob uses the indices to retrieve $M$ shares of the key, which he uses to decrypt the ciphertext
+\item Alice encrypts her data using random key $K$
+\item Alice divides $K$ into $N$ threshold secret shares (following Shamir 1979) and destroys the original copy
+\item Alice stores all $N$ shares in a distributed hash table (DHT) at pseudo-random indices
+\item Alice sends to Bob the ciphertext of the data as well as the seed used to derive the share indices
+\item Bob uses the indices to retrieve $M$ shares of the key, which he uses to decrypt the ciphertext
 \end{itemize}
 
 In order to achieve the expiring property, Vanish relies on the behavior of the DHT. The prototype uses the Vuze DHT, which expunges stored data after 8 hours, and requires republishing to persist the data beyond that interval. Other DHT implementations like OpenDHT allow the user to specify an expiration interval.
-Subsequent work by Wolchok et al. (``Defeating Vanish with Low-Cost Sybil Attacks Against Large DHTs'') demonstrated how to defeat Vanish by crawling the Vuze DHT for all stored values. In a follow-up paper (``New Directions for Self-Destructing Data Systems"), the Vanish authors proposed methods for hardening the Vuze DHT against crawling, as well as mechanisms for splitting the key between different types of stores.
-The fundamental assumption behind Vanish is that we can trust most nodes to behave correctly, and that securing the system is therefore a matter of raising the threshold number of nodes that must abuse that trust before the system fails. Our work differs in that we do not assume that the third-party key store behaves correctly. If the key store behaves correctly, it can provably attest to doing so. If it fails to produce this attestation, Alice can infer that the key store misbehaved. 
+Subsequent work by Wolchok et al. (``Defeating Vanish with Low-Cost Sybil Attacks Against Large DHTs''~\cite{defeat-vanish}) demonstrated how to defeat Vanish by crawling the Vuze DHT for all stored values. In a follow-up paper (``New Directions for Self-Destructing Data Systems"), the Vanish authors proposed methods for hardening the Vuze DHT against crawling, as well as mechanisms for splitting the key between different types of stores.
+The fundamental assumption behind Vanish is that we can trust most nodes to behave correctly, and that securing the system is therefore a matter of raising the threshold number of nodes that must abuse that trust before the system fails. Our work differs in that we do not assume that the third-party key store behaves correctly. If the key store behaves correctly, it can provably attest to doing so. If it fails to produce this attestation, Alice can infer that the key store misbehaved.
 
-Flicker\\
+Flicker~\cite{flicker,iso-tpm}\\
 
-Ethereum\\
+Ethereum~\cite{ethereum-white,ethereum-yellow}\\
 
 \section{Design}
 
@@ -55,7 +58,7 @@ Alice and Charlie can perform a protocol as follows:
 
 \begin{enumerate}
 
-\item Alice sends a Flicker PAL to Charlie. The PAL has an input parameter called `mode' which can take one of the following values: `initialize', `divulge', or `destroy'. 
+\item Alice sends a Flicker PAL to Charlie. The PAL has an input parameter called `mode' which can take one of the following values: `initialize', `divulge', or `destroy'.
 
 \item Alice asks Charlie to run the PAL with the input `mode=initialize'. When Charlie runs the PAL, the PAL establishes a secure channel. That is, it generates a public/private key pair, outputs the public key, and stores the private key in the TPM such that only this PAL is able to read it.
 
@@ -78,5 +81,8 @@ Alice and Charlie can perform a protocol as follows:
 If Charlie produces proof that he destroyed the key, he earns his commission and Alice knows that $K$ can never be divulged again. If he does not claim his commission before time $t$, then Alice knows that something is wrong. We can tie the protocol into a reputation system by requiring as step 0 that Charlie make a public, signed commitment to fulfilling the contract.
 
 The protocol as written does not restrict to whom Charlie divulges $K$; it simply produces a non-repudiable record of the divulgences. Suppose that Alice wishes that only Bob (or some arbitrary set of identities) is able to receive $K$. She could write the Ethereum contract in such a way that only a log that contains two entries---one corresponding to Bob and another indicating key destruction---can be used to claim the commission. If Alice wishes to make it impossible to divulge $K$ to someone other than Bob, she can embed Bob's key into the PAL. The TPM will guarantee that any modification to the PAL will produce an invalid attestation.
+
+\bibliographystyle{unsrt}
+\bibliography{paper}
 
 \end{document}
