@@ -1,6 +1,8 @@
 \documentclass{article}
 
 \usepackage[letterpaper, margin=1.25in]{geometry}
+\setlength{\parskip}{\baselineskip}%
+\setlength{\parindent}{0pt}%
 
 \begin{document}
 
@@ -11,19 +13,12 @@
 
 \section{Introduction}
 
-Today, we have more choices than ever when it comes to deciding who can hold on to our sensitive data, but it can be difficult to know who to trust. Even though we may trust a party at a given time, it can be difficult to know who we can trust in the future and impossible to know who might be compromised or subpeonaed. In recent years, there have been an increasing number of cases where courts mandated that a given thid party hand over its encryption keys~\cite{hushmail}, and there has been increasing pressure from law enforcement for services to incorporate a government ``back-door''~\cite{backdoor}.
+Today, we have more choices than ever when it comes to deciding who can hold on to our sensitive data, and it is difficult to know who we can trust. Even though we may trust a party at a given time, it is impossible to know who might be compromised or subpeonaed in the future. In recent years, there have been an increasing number of cases where courts mandated that a third party hand over its encryption keys~\cite{hushmail}, and there has been increasing pressure from law enforcement for services to incorporate a government ``back-door''~\cite{backdoor}. Also, data is copied so cheaply and freely that even if we explicitly delete some piece of data through an application's API, there is no mechanism in place to ensure us that \textit{all} copies have been deleted, or that it has not been shared with some other party.
 
 
-These situations could be mitigated by the existence of a system in which sensitive data expired after a given time. In this paper, we attempt to provide one possible realization of such a system.
-%In this paper, we attempt to provide a solution to these problems with a system that automatically expires data after a given time period without requiring the explicit action of the end-user.
+These situations could be mitigated by the existence of a system in which sensitive data expired after a given time. In this paper, we attempt to provide one possible realization of such a system. The difficulty in implementing expiring information lies in the difficulty of proving a negative. Namely, whoever is holding on to the sensitive data must prove not only that they deleted the data, but also that they didn't make a copy of it beforehand. In order to achieve this property, we leverage two areas of prior work on cryptographic proofs-of-work: Trusted Platform Modules (TPMs), and Ethereum smart contracts. TPMs allow one to ensure that code has been executed correctly and without modification, and smart contracts allow for the creation of an incentive system that encourages and rewards good behavior.
 
-
-The difficulty in implementing expiring information lies in the difficulty of proving a negative. Namely, whoever is holding on to the sensitive data must prove not only that they deleted the data, but also that they didn't make a copy of it beforehand.
-
-
-In order to achieve this property, we leverage two areas of prior work on cryptographic proofs-of-work: Trusted Platform Modules (TPMs), and Ethereum smart contracts. TPMs allow one to ensure that code has been executed correctly and without modification, and smart contracts allow for the creation of an incentive system that encourages and rewards good behavior.
-
-The rest of the paper is organized as follows. In Section 2, we provide background information on TPMs and Ethereum, and discuss prior work on expiring information. In Section 3, we make explicit our attack model and the goals of our protocol. In Section 4, we present our protocol and in Section 5, we analyze both the security properties it achieves and the limitations in entails. We conclude in Section 6.
+The rest of the paper is organized as follows. In Section 2, we provide necessary background information on TPMs and Ethereum, and discuss prior work on expiring information. In Section 3, we make explicit our attack model and the goals of our protocol. In Section 4, we present our protocol and in Section 5, we analyze both the security properties it achieves and the limitations in entails. We conclude in Section 6.
 
 \section{Background and Related Work}
 
@@ -39,9 +34,7 @@ One solution to the expiring message problem was the ``Vanish'' system, proposed
 \item Bob uses the indices to retrieve $M$ shares of the key, which he uses to decrypt the ciphertext
 \end{itemize}
 
-In order to achieve the expiring property, Vanish relies on the behavior of the DHT. The prototype uses the Vuze DHT, which expunges stored data after 8 hours, and requires republishing to persist the data beyond that interval. Other DHT implementations, such as OpenDHT, allow the user to specify an expiration interval~\cite{vanish}.
-
-However, subsequent work by Wolchok et al. demonstrated that Vanish can be defeated (relatively cheaply) by crawling the Vuze DHT for all stored values~\cite{defeat-vanish}.
+In order to achieve the expiring property, Vanish relies on the behavior of the DHT. The prototype uses the Vuze DHT, which expunges stored data after 8 hours, and requires republishing to persist the data beyond that interval. Other DHT implementations, such as OpenDHT, allow the user to specify an expiration interval~\cite{vanish}. However, subsequent work by Wolchok et al. demonstrated that Vanish can be defeated (relatively cheaply) by crawling the Vuze DHT for all stored values~\cite{defeat-vanish}.
 
 The fundamental assumption behind Vanish is that we can trust most nodes to behave correctly, and that securing the system is therefore a matter of raising the threshold number of nodes that must abuse that trust before the system fails. Our work differs in that we do not assume that the third-party key store behaves correctly. If the key store behaves correctly, it can provably attest to doing so. If it fails to produce this attestation, Alice can infer that the key store misbehaved.
 
@@ -67,11 +60,11 @@ Contracts are written in a high-level language and compiled down to an Ethereum-
 
 \section{Problem}
 
+Suppose that Alice wishes to make a piece of sensitive data ($D$) available to Bob that expires at time $t$, without requiring that she be online after sending the data. That is, before time $t$ Bob is able to read the data whenever he pleases, but after time $t$ he is unable to read the data. In addition, no one other than Bob (defined more precisely as any entity having access to Bob's private key) should be able to decrypt the data at \textit{any} time. We denote the receipient of sensitive data, Bob, as a single party for simplicity, but we also desire the property that Bob could be replaced with a set of users without sacrificing any of the other properties.
+
 \subsection{Attack Model}
 
-Suppose that Alice wishes to send a message to Bob that expires at time $t$. That is, before time $t$ Bob is able to read the message, but after time $t$ Bob is unable to read the message. In our model, Bob is not malicious and will not attempt to make an illicit copy of the message. However, we wish to protect against the eventuality that Bob becomes malicious in the future, or that Bob's system is compromised by a future adversary (Mallory). We do not wish to require that Alice be online in order for Bob to receive or read the message.
-
-\subsection{Design Goals}
+In this model, we make the assumption Bob is not malicious and will not attempt to store an illicit (unencrypted) copy of the message, or share his private key with other individuals. However, we wish to protect against the eventuality that Bob becomes malicious in the future (after $t$), or that Bob's system is compromised by a future adversary (Mallory), either legally or illegally. We assume in this case that at any time after $t$ Mallory can gain full access to Bob's machine, including any encryption keys stored on it.
 
 \section{Protocol}
 
@@ -79,13 +72,13 @@ Suppose that Alice wishes to send a message to Bob that expires at time $t$. Tha
 
 As a strawman, Alice could send the message to Bob encrypted with key $K$, and then store $K$ on a trusted third party (Charlie). To read the data, Bob asks Charlie for $K$, and if the current time is less than $t$, Charlie returns it. Just as we assume that Bob will not make a copy of the message, we assume that he discards $K$ after each use.
 
-The problem with the straw man is that it requires extending the same trust to Charlie that we do to Bob. Charlie can retain $K$ as long as he likes and distribute it as widely as he wishes---e.g., to Mallory---and moreover he can repudiate his misbehavior without any way for Alice to prove otherwise.
+The problem with this approach is that it requires extending the same trust to Charlie that we do to Bob. Charlie can retain $K$ as long as he likes and distribute it as widely as he wishes---e.g., to Mallory---and moreover he can repudiate his misbehavior without any way for Alice to prove otherwise.
 
 \subsection{PAL}
 
 The key insight of our approach is that, through the use of a TPM, we can shift the burden of proof onto Charlie; instead of Alice proving that Charlie acted in bad faith, Charlie can prove that he acted correctly. Specifically, we mandate that Charlie is a provider of secure computing, who, in exchange for a fee, will provide attestable execution of a given program at a given time.
 
-At the center of this approach is a Flicker PAL, which can be run in one of three modes:
+At the center of this approach is our custom Flicker PAL, which can be run in one of three modes:
 
 \begin{itemize}
 \item \texttt{initialize()} -- This function generates a public/private key pair
