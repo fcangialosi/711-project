@@ -26,7 +26,16 @@ Protection against replay attacks
 
 \section{Related Work}
 
-Vanish\\
+One solution to the expiring message problem was proposed in 2009 by Geambasu, Kohno, Levy, and Levy as ``Vanish: Increasing Data Privacy with Self-Destructing Data.'' The Vanish protocol runs as follows: 
+
+\begin{itemize}
+\item Alice encrypts her data using random key $K$\item Alice divides $K$ into $N$ threshold secret shares (following Shamir 1979) and destroys the original copy 
+\item Alice stores all $N$ shares in a distributed hash table (DHT) at pseudo-random indices\item Alice sends to Bob the ciphertext of the data as well as the seed used to derive the share indices\item Bob uses the indices to retrieve $M$ shares of the key, which he uses to decrypt the ciphertext
+\end{itemize}
+
+In order to achieve the expiring property, Vanish relies on the behavior of the DHT. The prototype uses the Vuze DHT, which expunges stored data after 8 hours, and requires republishing to persist the data beyond that interval. Other DHT implementations like OpenDHT allow the user to specify an expiration interval.
+Subsequent work by Wolchok et al. (``Defeating Vanish with Low-Cost Sybil Attacks Against Large DHTs'') demonstrated how to defeat Vanish by crawling the Vuze DHT for all stored values. In a follow-up paper (``New Directions for Self-Destructing Data Systems"), the Vanish authors proposed methods for hardening the Vuze DHT against crawling, as well as mechanisms for splitting the key between different types of stores.
+The fundamental assumption behind Vanish is that we can trust most nodes to behave correctly, and that securing the system is therefore a matter of raising the threshold number of nodes that must abuse that trust before the system fails. Our work differs in that we do not assume that the third-party key store behaves correctly. If the key store behaves correctly, it can provably attest to doing so. If it fails to produce this attestation, Alice can infer that the key store misbehaved. 
 
 Flicker\\
 
